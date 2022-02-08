@@ -1,0 +1,19 @@
+{
+  "name": "hackathon-multi-splitter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./src/index.js",
+  "scripts": {
+    "local_install": "npm link"
+  },
+  "bin": {
+    "audio-mulit": "src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^9.0.0",
+    "fluent-ffmpeg": "^2.1.2"
+  }
+}
