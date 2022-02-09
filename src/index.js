@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const { Command, CommanderError } = require("commander");
 const ffmpeg = require("fluent-ffmpeg");
+const cliProgress = require("cli-progress");
 
 const Errorer = (err) => {
   program.error(err);
@@ -8,20 +9,20 @@ const Errorer = (err) => {
 
 const round = (number) => Math.trunc(number * 1000) / 1000;
 
-const ffmpegPromise = (command, saveToName) =>
+const ffmpegPromise = (
+  command,
+  saveToName,
+  progressBar,
+  onProgressCallback,
+  onEndCallback,
+) =>
   new Promise((resolve, reject) => {
     command.clone()
       .on("progress", (data) => {
-        const { currentKbps, targetSize, timemark, percent } = data;
-        console.log(
-          `${
-            round(percent)
-          }% done. Currently at ${timemark}, working at ${currentKbps} on the way to ${targetSize} `,
-        );
+        onProgressCallback(progressBar, data);
       })
-      .save(saveToName)
       .on("end", () => {
-        console.log("processing finished");
+        onEndCallback(progressBar);
         resolve();
       })
       .on("error", (err, stdout, stderr) => {
@@ -30,7 +31,8 @@ const ffmpegPromise = (command, saveToName) =>
             `Something went wrong with ffmpeg\n${err} \n ${stdout} \n ${stderr}`,
           ),
         );
-      });
+      })
+      .save(saveToName);
   });
 
 const parseTimeToSeconds = (timeString) => {
@@ -107,11 +109,20 @@ program
     const inputName = getFileName(filePath);
     const { extWithoutDot: ext } = getFileExtension(filePath);
 
+    const progressBar = new cliProgress.MultiBar(
+      { hideCursor: true },
+      cliProgress.Presets.shades_classic,
+    );
+
     timeStampsAsSeconds.forEach(async (time, index) => {
       let ffmpegCommand = ffmpeg(filePath).outputOption("-c:v copy");
       // skip the first element, because it 0 and won't cut anything
       if (index == 0 && time == 0) return;
 
+      const taskProgressBar = progressBar.create(100, 0);
+      const onProgress = (bar, data) => {
+        bar.update(data.percent);
+      };
       // on the last elem, cut til the end
       if (index == timeStampsAsSeconds.length - 1) {
         ffmpegCommand = ffmpegCommand.setStartTime(time);
@@ -119,7 +130,16 @@ program
         const timeNotSecond = timeStamps[index - 1];
         const outputName =
           `${outputPath}/${timeNotSecond}-to-end-${inputName}.${ext}`;
-        await ffmpegPromise(ffmpegCommand, outputName);
+        ffmpegPromise(
+          ffmpegCommand,
+          outputName,
+          taskProgressBar,
+          onProgress,
+          () => {},
+        ).then(() => {
+          progressBar.stop();
+          console.log("Finish");
+        });
       }
       const prevTime = timeStampsAsSeconds[index - 1];
       const length = time - prevTime;
@@ -127,11 +147,16 @@ program
       const prevTimeNotSecond = index == 1 ? 0 : timeStamps[index - 2];
       const timeNotSecond = timeStamps[index - 1];
 
-      console.log(prevTimeNotSecond, timeNotSecond);
       ffmpegCommand = ffmpegCommand.setStartTime(prevTime).duration(length);
       const outputName =
         `${outputPath}/${prevTimeNotSecond}-to-${timeNotSecond}-${inputName}.${ext}`;
-      await ffmpegPromise(ffmpegCommand, outputName);
+      ffmpegPromise(
+        ffmpegCommand,
+        outputName,
+        taskProgressBar,
+        onProgress,
+        () => {},
+      );
     });
   });
 // program.exitOverride();
