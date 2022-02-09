@@ -7,7 +7,7 @@
     "local_install": "npm link"
   },
   "bin": {
-    "audio-mulit": "src/index.js"
+    "audio-cut-multi": "src/index.js"
   },
   "keywords": [],
   "author": "",

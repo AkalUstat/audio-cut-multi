@@ -76,7 +76,7 @@ const getFileExtension = (path) => {
 
 const program = new Command();
 program
-  .argument("<path>", "filepath")
+  .argument("<path>", "audio file path")
   .option("-t, --from-text <text-path>", "text file to read timestamps from")
   .option(
     "-l, --list [timestamps...]",
